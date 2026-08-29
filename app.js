@@ -5,7 +5,7 @@ let activeCategory = 'Semua';
 let activeEditCategory = null;
 let mediaStream = null;
 let trackState = null;
-let isTorchOn = false; // State Status Senter (ON/OFF)
+let isTorchOn = false;
 let generatedCode = '';
 let currentViewPhotoIndex = null;
 
@@ -46,6 +46,7 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function init() {
   migratePhotoTimestamps();
+  sortPhotosByNewest(); // Memastikan urutan foto selalu dari yang terbaru
   renderCategories();
   renderGallery();
 }
@@ -55,12 +56,18 @@ function saveData() {
   localStorage.setItem('galeryfir_photos', JSON.stringify(photos));
 }
 
+// Pastikan Foto Diurutkan dari yang Terbaru di Array Utama
+function sortPhotosByNewest() {
+  photos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+}
+
 // Pastikan Semua Foto Memiliki Timestamp
 function migratePhotoTimestamps() {
   let changed = false;
+  const now = Date.now();
   photos.forEach((p, index) => {
     if (!p.timestamp) {
-      p.timestamp = Date.now() - (index * 1000);
+      p.timestamp = now - (index * 1000);
       changed = true;
     }
   });
@@ -125,7 +132,7 @@ function renderCategories() {
   });
 }
 
-// Render Galeri
+// Render Galeri (Foto Terbaru Tampil di Atas)
 function renderGallery() {
   galleryContainerEl.innerHTML = '';
   
@@ -143,10 +150,15 @@ function renderGallery() {
     groupedByDate[dateKey].push(photo);
   });
 
+  // Urutkan Tanggal dari yang Paling Baru (Teratas)
   const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a));
 
   sortedDates.forEach(dateKey => {
     const groupPhotos = groupedByDate[dateKey];
+    
+    // Urutkan foto di dalam grup yang sama dari yang paling baru
+    groupPhotos.sort((a, b) => b.timestamp - a.timestamp);
+
     const groupHeaderTitle = formatDateHeader(groupPhotos[0].timestamp);
 
     const groupEl = document.createElement('div');
@@ -405,12 +417,13 @@ document.getElementById('confirm-move-btn').onclick = () => {
     });
   } else if (pendingActionType === 'copy') {
     selectedPhotoIndices.forEach(idx => {
-      photos.push({
+      photos.unshift({
         data: photos[idx].data,
         category: targetCat,
-        timestamp: photos[idx].timestamp || Date.now()
+        timestamp: Date.now()
       });
     });
+    sortPhotosByNewest();
   }
 
   saveData();
@@ -438,7 +451,7 @@ document.getElementById('final-delete-photos-btn').onclick = () => {
   exitSelectionMode();
 };
 
-// --- MODUL KAMERA & SENTER (TOGGLE SENTER & KEDIP SHUTTER) ---
+// --- KAMERA, SENTER, & PEMOTRETAN ---
 
 document.getElementById('open-cam-btn').onclick = async () => {
   cameraModal.classList.remove('hidden');
@@ -505,25 +518,27 @@ function updateTorchButtonUI() {
   }
 }
 
-// Memotret Foto + Efek Kedip Layar Kamera
+// Memotret Foto Baru (Dimasukkan ke Awal Array)
 document.getElementById('capture-btn').onclick = () => {
-  // 1. Trigger Efek Kedip Kamera
+  // 1. Efek Kedip Kamera
   flashOverlayEl.classList.remove('active');
-  void flashOverlayEl.offsetWidth; // Trigger reflow
+  void flashOverlayEl.offsetWidth;
   flashOverlayEl.classList.add('active');
 
   setTimeout(() => {
     flashOverlayEl.classList.remove('active');
   }, 150);
 
-  // 2. Ambil Foto dari Video Stream
+  // 2. Ambil Gambar
   const context = canvasEl.getContext('2d');
   canvasEl.width = webcamEl.videoWidth || 640;
   canvasEl.height = webcamEl.videoHeight || 480;
   context.drawImage(webcamEl, 0, 0, canvasEl.width, canvasEl.height);
   
   const photoData = canvasEl.toDataURL('image/png');
-  photos.push({
+  
+  // unshift() memasukkan foto baru langsung ke posisi paling awal
+  photos.unshift({
     data: photoData,
     category: 'Semua',
     timestamp: Date.now()
@@ -532,7 +547,7 @@ document.getElementById('capture-btn').onclick = () => {
   saveData();
   renderGallery();
 
-  // 3. Notifikasi Teks
+  // 3. Notifikasi Singkat
   const noticeEl = document.getElementById('cam-flash-notice');
   const originalText = noticeEl.innerText;
   noticeEl.innerText = '📸 Foto Tersimpan!';
