@@ -5,7 +5,7 @@ let activeCategory = 'Semua';
 let activeEditCategory = null;
 let mediaStream = null;
 let trackState = null;
-let isTorchOn = false;
+let isTorchOn = false; // State Status Senter (ON/OFF)
 let generatedCode = '';
 let currentViewPhotoIndex = null;
 
@@ -46,7 +46,6 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function init() {
   migratePhotoTimestamps();
-  sortPhotosByNewest(); // Memastikan urutan foto selalu dari yang terbaru
   renderCategories();
   renderGallery();
 }
@@ -56,18 +55,12 @@ function saveData() {
   localStorage.setItem('galeryfir_photos', JSON.stringify(photos));
 }
 
-// Pastikan Foto Diurutkan dari yang Terbaru di Array Utama
-function sortPhotosByNewest() {
-  photos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-}
-
 // Pastikan Semua Foto Memiliki Timestamp
 function migratePhotoTimestamps() {
   let changed = false;
-  const now = Date.now();
   photos.forEach((p, index) => {
     if (!p.timestamp) {
-      p.timestamp = now - (index * 1000);
+      p.timestamp = Date.now() - (index * 1000);
       changed = true;
     }
   });
@@ -132,7 +125,7 @@ function renderCategories() {
   });
 }
 
-// Render Galeri (Foto Terbaru Tampil di Atas)
+// Render Galeri
 function renderGallery() {
   galleryContainerEl.innerHTML = '';
   
@@ -150,13 +143,13 @@ function renderGallery() {
     groupedByDate[dateKey].push(photo);
   });
 
-  // Urutkan Tanggal dari yang Paling Baru (Teratas)
+  // Urutkan kelompok tanggal (Tanggal terbaru di atas)
   const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a));
 
   sortedDates.forEach(dateKey => {
     const groupPhotos = groupedByDate[dateKey];
-    
-    // Urutkan foto di dalam grup yang sama dari yang paling baru
+
+    // FIX: Urutkan foto dalam kelompok ini dari yang TERBARU ke TERLAMA
     groupPhotos.sort((a, b) => b.timestamp - a.timestamp);
 
     const groupHeaderTitle = formatDateHeader(groupPhotos[0].timestamp);
@@ -417,13 +410,12 @@ document.getElementById('confirm-move-btn').onclick = () => {
     });
   } else if (pendingActionType === 'copy') {
     selectedPhotoIndices.forEach(idx => {
-      photos.unshift({
+      photos.push({
         data: photos[idx].data,
         category: targetCat,
-        timestamp: Date.now()
+        timestamp: photos[idx].timestamp || Date.now()
       });
     });
-    sortPhotosByNewest();
   }
 
   saveData();
@@ -451,7 +443,7 @@ document.getElementById('final-delete-photos-btn').onclick = () => {
   exitSelectionMode();
 };
 
-// --- KAMERA, SENTER, & PEMOTRETAN ---
+// --- MODUL KAMERA & SENTER ---
 
 document.getElementById('open-cam-btn').onclick = async () => {
   cameraModal.classList.remove('hidden');
@@ -483,7 +475,7 @@ function stopCamera() {
   cameraModal.classList.add('hidden');
 }
 
-// Sakelar (Toggle) Senter Nyala / Mati
+// Sakelar Senter
 torchBtnEl.onclick = async () => {
   if (!trackState) return;
 
@@ -518,27 +510,25 @@ function updateTorchButtonUI() {
   }
 }
 
-// Memotret Foto Baru (Dimasukkan ke Awal Array)
+// Memotret Foto
 document.getElementById('capture-btn').onclick = () => {
-  // 1. Efek Kedip Kamera
+  // 1. Trigger Efek Kedip Kamera
   flashOverlayEl.classList.remove('active');
-  void flashOverlayEl.offsetWidth;
+  void flashOverlayEl.offsetWidth; // Trigger reflow
   flashOverlayEl.classList.add('active');
 
   setTimeout(() => {
     flashOverlayEl.classList.remove('active');
   }, 150);
 
-  // 2. Ambil Gambar
+  // 2. Ambil Foto
   const context = canvasEl.getContext('2d');
   canvasEl.width = webcamEl.videoWidth || 640;
   canvasEl.height = webcamEl.videoHeight || 480;
   context.drawImage(webcamEl, 0, 0, canvasEl.width, canvasEl.height);
   
   const photoData = canvasEl.toDataURL('image/png');
-  
-  // unshift() memasukkan foto baru langsung ke posisi paling awal
-  photos.unshift({
+  photos.push({
     data: photoData,
     category: 'Semua',
     timestamp: Date.now()
@@ -547,7 +537,7 @@ document.getElementById('capture-btn').onclick = () => {
   saveData();
   renderGallery();
 
-  // 3. Notifikasi Singkat
+  // 3. Notifikasi
   const noticeEl = document.getElementById('cam-flash-notice');
   const originalText = noticeEl.innerText;
   noticeEl.innerText = '📸 Foto Tersimpan!';
