@@ -5,7 +5,7 @@ let activeCategory = 'Semua';
 let activeEditCategory = null;
 let mediaStream = null;
 let trackState = null;
-let isTorchOn = false; // State untuk toggle senter
+let isTorchOn = false; // State Status Senter (ON/OFF)
 let generatedCode = '';
 let currentViewPhotoIndex = null;
 
@@ -20,7 +20,7 @@ const galleryContainerEl = document.getElementById('gallery-container');
 const webcamEl = document.getElementById('webcam');
 const canvasEl = document.getElementById('photo-canvas');
 const flashOverlayEl = document.getElementById('camera-flash-overlay');
-const torchBtn = document.getElementById('torch-btn');
+const torchBtnEl = document.getElementById('torch-btn');
 
 const selectBarEl = document.getElementById('select-bar');
 const selectedCountEl = document.getElementById('selected-count');
@@ -125,7 +125,7 @@ function renderCategories() {
   });
 }
 
-// Render Galeri Foto Dikelompokkan Menurut Tanggal
+// Render Galeri
 function renderGallery() {
   galleryContainerEl.innerHTML = '';
   
@@ -212,7 +212,7 @@ function renderGallery() {
   updateToggleSelectAllButtonState();
 }
 
-// System Viewer Foto Fullscreen
+// Viewer Fullscreen
 function openPhotoViewer(index) {
   currentViewPhotoIndex = index;
   viewerImg.src = photos[index].data;
@@ -225,7 +225,7 @@ document.getElementById('close-viewer-btn').onclick = () => {
   currentViewPhotoIndex = null;
 };
 
-// Pop Up Rincian Foto
+// Pop Up Rincian
 document.getElementById('details-single-btn').onclick = () => {
   if (currentViewPhotoIndex !== null) {
     const photo = photos[currentViewPhotoIndex];
@@ -252,14 +252,12 @@ document.getElementById('close-details-btn').onclick = () => {
   photoDetailsModal.classList.add('hidden');
 };
 
-// Unduh Single Foto
 document.getElementById('download-single-btn').onclick = () => {
   if (currentViewPhotoIndex !== null) {
     executeDownload(photos[currentViewPhotoIndex].data, `Galeryfir_${Date.now()}.png`);
   }
 };
 
-// Hapus Single Foto
 document.getElementById('delete-single-btn').onclick = () => {
   if (currentViewPhotoIndex !== null) {
     confirmDeleteSingleModal.classList.remove('hidden');
@@ -290,7 +288,7 @@ function executeDownload(dataUrl, filename) {
   document.body.removeChild(link);
 }
 
-// Mode Seleksi Multi-Foto
+// Mode Seleksi Multi
 function enterSelectionMode(firstIndex) {
   isSelectionMode = true;
   selectedPhotoIndices = [firstIndex];
@@ -360,7 +358,6 @@ toggleSelectAllBtn.onclick = () => {
   renderGallery();
 };
 
-// Multi Download
 document.getElementById('multi-download-btn').onclick = () => {
   selectedPhotoIndices.forEach((idx, i) => {
     setTimeout(() => {
@@ -371,7 +368,6 @@ document.getElementById('multi-download-btn').onclick = () => {
 
 document.getElementById('cancel-select-btn').onclick = exitSelectionMode;
 
-// Pindah & Salin Multi Foto
 document.getElementById('multi-move-btn').onclick = () => {
   if (selectedPhotoIndices.length === 0) return;
   pendingActionType = 'move';
@@ -422,7 +418,6 @@ document.getElementById('confirm-move-btn').onclick = () => {
   exitSelectionMode();
 };
 
-// Hapus Multi Foto
 document.getElementById('multi-delete-btn').onclick = () => {
   if (selectedPhotoIndices.length === 0) return;
   document.getElementById('delete-photos-count-text').innerText = 
@@ -443,7 +438,8 @@ document.getElementById('final-delete-photos-btn').onclick = () => {
   exitSelectionMode();
 };
 
-// Open Camera
+// --- MODUL KAMERA & SENTER (TOGGLE SENTER & KEDIP SHUTTER) ---
+
 document.getElementById('open-cam-btn').onclick = async () => {
   cameraModal.classList.remove('hidden');
   isTorchOn = false;
@@ -464,8 +460,9 @@ document.getElementById('open-cam-btn').onclick = async () => {
 document.getElementById('close-cam-btn').onclick = stopCamera;
 
 function stopCamera() {
-  if (isTorchOn) {
-    toggleTorch(false);
+  if (trackState && isTorchOn) {
+    trackState.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
+    isTorchOn = false;
   }
   if (mediaStream) {
     mediaStream.getTracks().forEach(track => track.stop());
@@ -473,63 +470,53 @@ function stopCamera() {
   cameraModal.classList.add('hidden');
 }
 
-// Update Tampilan Tombol Senter
-function updateTorchButtonUI() {
-  if (isTorchOn) {
-    torchBtn.innerText = '💡 Senter: ON';
-    torchBtn.style.background = '#00ffcc';
-    torchBtn.style.color = '#000';
-  } else {
-    torchBtn.innerText = '🔦 Senter: OFF';
-    torchBtn.style.background = '#333';
-    torchBtn.style.color = '#fff';
-  }
-}
+// Sakelar (Toggle) Senter Nyala / Mati
+torchBtnEl.onclick = async () => {
+  if (!trackState) return;
 
-// Fix: Toggle Senter dinyalakan/dimatikan
-torchBtn.onclick = () => {
-  toggleTorch(!isTorchOn);
+  const capabilities = trackState.getCapabilities ? trackState.getCapabilities() : {};
+
+  if (capabilities.torch) {
+    try {
+      isTorchOn = !isTorchOn;
+      await trackState.applyConstraints({
+        advanced: [{ torch: isTorchOn }]
+      });
+      updateTorchButtonUI();
+    } catch (err) {
+      alert('Gagal mengubah status senter: ' + err.message);
+    }
+  } else {
+    alert('Fitur senter perangkat tidak tersedia atau tidak didukung oleh browser.');
+  }
 };
 
-async function toggleTorch(turnOn) {
-  isTorchOn = turnOn;
-  updateTorchButtonUI();
-
-  if (trackState) {
-    try {
-      const capabilities = trackState.getCapabilities ? trackState.getCapabilities() : {};
-      if (capabilities.torch) {
-        await trackState.applyConstraints({
-          advanced: [{ torch: isTorchOn }]
-        });
-        return;
-      }
-    } catch (e) {
-      console.log('Senter hardware tidak merespons, menggunakan Screen Flash.');
-    }
-  }
-
-  // Fallback ke Screen Flash jika perangkat tidak mendukung Senter hardware
+function updateTorchButtonUI() {
   if (isTorchOn) {
-    flashOverlayEl.style.opacity = '0.7';
-    flashOverlayEl.style.pointerEvents = 'none';
+    torchBtnEl.innerText = '🔦 Senter [ON]';
+    torchBtnEl.style.background = '#ff007f';
+    torchBtnEl.style.color = '#fff';
+    torchBtnEl.style.boxShadow = '0 0 10px #ff007f';
   } else {
-    flashOverlayEl.style.opacity = '0';
+    torchBtnEl.innerText = '🔦 Senter';
+    torchBtnEl.style.background = '#333';
+    torchBtnEl.style.color = '#fff';
+    torchBtnEl.style.boxShadow = 'none';
   }
 }
 
-// Fix: Kedip Kamera Saat Motret
+// Memotret Foto + Efek Kedip Layar Kamera
 document.getElementById('capture-btn').onclick = () => {
-  // 1. Efek Kedip Kamera Real-Time (Flash Effect)
-  flashOverlayEl.style.transition = 'none';
-  flashOverlayEl.style.opacity = '1';
+  // 1. Trigger Efek Kedip Kamera
+  flashOverlayEl.classList.remove('active');
+  void flashOverlayEl.offsetWidth; // Trigger reflow
+  flashOverlayEl.classList.add('active');
 
   setTimeout(() => {
-    flashOverlayEl.style.transition = 'opacity 0.25s ease-out';
-    flashOverlayEl.style.opacity = isTorchOn ? '0.7' : '0';
-  }, 80);
+    flashOverlayEl.classList.remove('active');
+  }, 150);
 
-  // 2. Ambil Gambar dari Webcam
+  // 2. Ambil Foto dari Video Stream
   const context = canvasEl.getContext('2d');
   canvasEl.width = webcamEl.videoWidth || 640;
   canvasEl.height = webcamEl.videoHeight || 480;
