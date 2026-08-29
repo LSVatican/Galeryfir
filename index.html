@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galeryfir</title>
+  <link rel="icon" id="dynamic-favicon" href="favicon.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="rainbow-border">
+    <!-- Header -->
+    <header class="app-header">
+      <h1>Galeryfir</h1>
+      <button id="open-cam-btn" class="glow-btn">📷 Kamera</button>
+    </header>
+
+    <!-- Navigasi Kategori -->
+    <div class="category-nav">
+      <div id="category-list" class="category-list"></div>
+      <button id="add-cat-btn" class="icon-btn">+</button>
+    </div>
+
+    <!-- Area Galeri -->
+    <main id="gallery-grid" class="gallery-grid"></main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Created by Daus Dopo</p>
+    </footer>
+  </div>
+
+  <!-- Layout Kamera (Fullscreen Modal) -->
+  <div id="camera-modal" class="modal hidden">
+    <div class="camera-layout">
+      <video id="webcam" autoplay playsinline></video>
+      <div class="camera-controls">
+        <button id="torch-btn" class="cam-btn">🔦 Senter</button>
+        <button id="capture-btn" class="cam-btn capture-circle"></button>
+        <button id="close-cam-btn" class="cam-btn">❌ Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pop Up Tambah Kategori -->
+  <div id="add-cat-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Tambah Kategori Baru</h3>
+      <input type="text" id="new-cat-input" placeholder="Nama Kategori">
+      <div class="modal-actions">
+        <button id="save-cat-btn" class="action-btn">Simpan</button>
+        <button id="close-add-cat-btn" class="action-btn cancel">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pop Up Edit Kategori -->
+  <div id="edit-cat-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="edit-header">
+        <h3>Edit Kategori</h3>
+        <button id="delete-cat-btn" class="danger-btn">Hapus Kategori</button>
+      </div>
+      <input type="text" id="edit-cat-input" placeholder="Nama Kategori Baru">
+      <div class="modal-actions">
+        <button id="update-cat-btn" class="action-btn">Perbarui</button>
+        <button id="close-edit-cat-btn" class="action-btn cancel">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pop Up Pindah Kategori Foto -->
+  <div id="move-photo-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Pindahkan Foto Ke:</h3>
+      <select id="move-cat-select"></select>
+      <div class="modal-actions">
+        <button id="confirm-move-btn" class="action-btn">Pindahkan</button>
+        <button id="close-move-btn" class="action-btn cancel">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pop Up Konfirmasi Hapus Kategori -->
+  <div id="confirm-delete-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 class="danger-text">Konfirmasi Hapus</h3>
+      <p>Ketik kode berikut untuk menghapus kategori: <strong id="random-code-display"></strong></p>
+      <input type="text" id="verify-code-input" placeholder="Masukkan kode">
+      <div class="modal-actions">
+        <button id="final-delete-btn" class="danger-btn">Hapus</button>
+        <button id="close-confirm-del-btn" class="action-btn cancel">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="photo-canvas" class="hidden"></canvas>
+  <script src="app.js"></script>
+</body>
+</html>
