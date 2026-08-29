@@ -6,11 +6,12 @@ let activeEditCategory = null;
 let mediaStream = null;
 let trackState = null;
 let generatedCode = '';
+let currentViewPhotoIndex = null;
 
 // Mode Seleksi Multi-Foto
 let isSelectionMode = false;
 let selectedPhotoIndices = [];
-let pendingActionType = 'move'; // 'move' atau 'copy'
+let pendingActionType = 'move';
 
 // DOM Elements
 const categoryListEl = document.getElementById('category-list');
@@ -20,6 +21,7 @@ const canvasEl = document.getElementById('photo-canvas');
 
 const selectBarEl = document.getElementById('select-bar');
 const selectedCountEl = document.getElementById('selected-count');
+const toggleSelectAllBtn = document.getElementById('toggle-select-all-btn');
 
 // Modal Elements
 const cameraModal = document.getElementById('camera-modal');
@@ -29,7 +31,12 @@ const movePhotoModal = document.getElementById('move-photo-modal');
 const confirmDeleteModal = document.getElementById('confirm-delete-modal');
 const confirmDeletePhotosModal = document.getElementById('confirm-delete-photos-modal');
 
-// Blokir Klik Kanan / Context Menu Bawaan Browser
+// Viewer Elements
+const photoViewerModal = document.getElementById('photo-viewer-modal');
+const viewerImg = document.getElementById('viewer-img');
+const viewerCategoryTag = document.getElementById('viewer-category-tag');
+
+// Blokir Context Menu
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function init() {
@@ -64,7 +71,7 @@ function renderCategories() {
   });
 }
 
-// Render Galeri Foto dengan Long Press Event
+// Render Galeri Foto
 function renderGallery() {
   galleryGridEl.innerHTML = '';
   const filteredPhotos = activeCategory === 'Semua' 
@@ -78,16 +85,16 @@ function renderGallery() {
     const card = document.createElement('div');
     card.className = `photo-card ${isSelected ? 'selected' : ''}`;
     
-    let badgeHtml = `<span class="photo-badge">${photo.category}</span>`;
     let selectCheckHtml = isSelectionMode ? `<div class="select-checkbox">${isSelected ? '✓' : ''}</div>` : '';
+    let downloadBtnHtml = !isSelectionMode ? `<button class="photo-download-btn" onclick="downloadSinglePhoto(event, ${realIndex})">⬇️</button>` : '';
 
     card.innerHTML = `
       ${selectCheckHtml}
-      ${badgeHtml}
       <img src="${photo.data}" alt="Foto">
+      ${downloadBtnHtml}
     `;
 
-    // Penanganan Tekan & Tahan (Long Press) & Klik Normal
+    // Long Press & Klik Handler
     let pressTimer;
 
     const startPress = () => {
@@ -95,7 +102,7 @@ function renderGallery() {
         if (!isSelectionMode) {
           enterSelectionMode(realIndex);
         }
-      }, 500); // 500ms dianggap tekan dan tahan
+      }, 500);
     };
 
     const cancelPress = () => clearTimeout(pressTimer);
@@ -108,17 +115,58 @@ function renderGallery() {
     card.addEventListener('touchend', cancelPress);
     card.addEventListener('touchcancel', cancelPress);
 
-    card.onclick = () => {
+    card.onclick = (e) => {
       if (isSelectionMode) {
         togglePhotoSelection(realIndex);
+      } else {
+        // Jika bukan tombol unduh yang diklik, buka Viewer
+        if (!e.target.classList.contains('photo-download-btn')) {
+          openPhotoViewer(realIndex);
+        }
       }
     };
 
     galleryGridEl.appendChild(card);
   });
+
+  updateToggleSelectAllButtonState();
 }
 
-// Sistem Seleksi Multi Foto
+// System Viewer Foto Fullscreen
+function openPhotoViewer(index) {
+  currentViewPhotoIndex = index;
+  viewerImg.src = photos[index].data;
+  viewerCategoryTag.innerText = photos[index].category;
+  photoViewerModal.classList.remove('hidden');
+}
+
+document.getElementById('close-viewer-btn').onclick = () => {
+  photoViewerModal.classList.add('hidden');
+  currentViewPhotoIndex = null;
+};
+
+document.getElementById('download-single-btn').onclick = () => {
+  if (currentViewPhotoIndex !== null) {
+    executeDownload(photos[currentViewPhotoIndex].data, `Galeryfir_${Date.now()}.png`);
+  }
+};
+
+// System Unduh Gambar
+function executeDownload(dataUrl, filename) {
+  const link = document.createElement('a');
+  link.href = dataUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+window.downloadSinglePhoto = (event, index) => {
+  event.stopPropagation();
+  executeDownload(photos[index].data, `Galeryfir_${Date.now()}.png`);
+};
+
+// Mode Seleksi Multi-Foto
 function enterSelectionMode(firstIndex) {
   isSelectionMode = true;
   selectedPhotoIndices = [firstIndex];
@@ -154,20 +202,55 @@ function updateSelectionUI() {
   selectedCountEl.innerText = `${selectedPhotoIndices.length} Terpilih`;
 }
 
-// Tombol Pilih Semua
-document.getElementById('select-all-btn').onclick = () => {
+// Tombol Toggle "Pilih Semua" / "Batal Pilih Semua"
+function updateToggleSelectAllButtonState() {
   const currentFiltered = activeCategory === 'Semua' 
     ? photos 
     : photos.filter(p => p.category === activeCategory);
 
-  selectedPhotoIndices = currentFiltered.map(p => photos.indexOf(p));
+  const allFilteredIndices = currentFiltered.map(p => photos.indexOf(p));
+  const isAllSelected = allFilteredIndices.length > 0 && allFilteredIndices.every(idx => selectedPhotoIndices.includes(idx));
+
+  if (isAllSelected) {
+    toggleSelectAllBtn.innerText = 'Batal Pilih Semua';
+  } else {
+    toggleSelectAllBtn.innerText = 'Pilih Semua';
+  }
+}
+
+toggleSelectAllBtn.onclick = () => {
+  const currentFiltered = activeCategory === 'Semua' 
+    ? photos 
+    : photos.filter(p => p.category === activeCategory);
+
+  const allFilteredIndices = currentFiltered.map(p => photos.indexOf(p));
+  const isAllSelected = allFilteredIndices.every(idx => selectedPhotoIndices.includes(idx));
+
+  if (isAllSelected) {
+    // Batalkan semua seleksi untuk kategori aktif
+    selectedPhotoIndices = selectedPhotoIndices.filter(idx => !allFilteredIndices.includes(idx));
+    if (selectedPhotoIndices.length === 0) exitSelectionMode();
+  } else {
+    // Pilih semua foto di kategori aktif
+    selectedPhotoIndices = Array.from(new Set([...selectedPhotoIndices, ...allFilteredIndices]));
+  }
+
   updateSelectionUI();
   renderGallery();
 };
 
+// Download Banyak Foto
+document.getElementById('multi-download-btn').onclick = () => {
+  selectedPhotoIndices.forEach((idx, i) => {
+    setTimeout(() => {
+      executeDownload(photos[idx].data, `Galeryfir_${Date.now()}_${i + 1}.png`);
+    }, i * 300); // Penundaan kecil agar browser mengizinkan unduhan bertahap
+  });
+};
+
 document.getElementById('cancel-select-btn').onclick = exitSelectionMode;
 
-// Pindah Multi Foto (Tanpa Duplikat)
+// Pindah & Salin Multi Foto
 document.getElementById('multi-move-btn').onclick = () => {
   if (selectedPhotoIndices.length === 0) return;
   pendingActionType = 'move';
@@ -175,7 +258,6 @@ document.getElementById('multi-move-btn').onclick = () => {
   openMoveModal();
 };
 
-// Salin Multi Foto
 document.getElementById('multi-copy-btn').onclick = () => {
   if (selectedPhotoIndices.length === 0) return;
   pendingActionType = 'copy';
@@ -201,12 +283,10 @@ document.getElementById('confirm-move-btn').onclick = () => {
   const targetCat = document.getElementById('move-cat-select').value;
 
   if (pendingActionType === 'move') {
-    // Ubah kategori foto terpilih tanpa duplikasi
     selectedPhotoIndices.forEach(idx => {
       photos[idx].category = targetCat;
     });
   } else if (pendingActionType === 'copy') {
-    // Buat salinan foto baru ke kategori target
     selectedPhotoIndices.forEach(idx => {
       photos.push({
         data: photos[idx].data,
@@ -220,7 +300,7 @@ document.getElementById('confirm-move-btn').onclick = () => {
   exitSelectionMode();
 };
 
-// Hapus Multi Foto dengan Konfirmasi
+// Hapus Multi Foto
 document.getElementById('multi-delete-btn').onclick = () => {
   if (selectedPhotoIndices.length === 0) return;
   document.getElementById('delete-photos-count-text').innerText = 
@@ -231,7 +311,6 @@ document.getElementById('multi-delete-btn').onclick = () => {
 document.getElementById('close-delete-photos-btn').onclick = () => confirmDeletePhotosModal.classList.add('hidden');
 
 document.getElementById('final-delete-photos-btn').onclick = () => {
-  // Urutkan dari indeks terbesar ke terkecil agar penghapusan tidak merusak indeks
   selectedPhotoIndices.sort((a, b) => b - a);
   selectedPhotoIndices.forEach(idx => {
     photos.splice(idx, 1);
@@ -364,5 +443,5 @@ document.getElementById('final-delete-btn').onclick = () => {
   }
 };
 
-// Jalankan inisialisasi awal
+// Inisialisasi awal
 init();

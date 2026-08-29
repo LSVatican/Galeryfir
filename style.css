@@ -3,7 +3,7 @@
   margin: 0;
   padding: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  -webkit-touch-callout: none; /* Blokir menu kontekstual iOS/Android */
+  -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -78,6 +78,7 @@ body {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .sm-btn {
@@ -142,10 +143,13 @@ body {
   background: #222;
   color: #fff;
   border: 1px solid #666;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .gallery-grid {
@@ -175,26 +179,32 @@ body {
   height: 140px;
   object-fit: cover;
   display: block;
-  pointer-events: none; /* Cegah gesture klik kanan gambar di mobile */
+  pointer-events: none;
 }
 
-.photo-badge {
+.photo-download-btn {
   position: absolute;
-  top: 5px;
-  right: 5px;
+  bottom: 6px;
+  right: 6px;
   background: rgba(0, 0, 0, 0.7);
+  border: 1px solid #ff007f;
   color: #fff;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 10px;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .select-checkbox {
   position: absolute;
-  top: 5px;
-  left: 5px;
-  width: 20px;
-  height: 20px;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 2px solid #fff;
   background: rgba(0, 0, 0, 0.5);
@@ -202,6 +212,7 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 12px;
+  z-index: 5;
 }
 
 .photo-card.selected .select-checkbox {
@@ -295,7 +306,51 @@ body {
   margin-bottom: 10px;
 }
 
-/* Kamera Layout & Petunjuk */
+/* Layout Photo Viewer Fullscreen */
+.viewer-layout {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #000;
+  padding: 15px;
+}
+
+.viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.viewer-tag {
+  background: #ff007f;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.viewer-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-body img {
+  max-width: 100%;
+  max-height: 75vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.viewer-footer {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 10px;
+}
+
+/* Kamera Layout */
 .camera-layout {
   width: 100%;
   height: 100%;
