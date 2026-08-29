@@ -7,32 +7,43 @@
   <link rel="icon" id="dynamic-favicon" href="favicon.png" type="image/png">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body oncontextmenu="return false;">
   <div class="rainbow-border">
-    <!-- Header -->
     <header class="app-header">
       <h1>Galeryfir</h1>
       <button id="open-cam-btn" class="glow-btn">📷 Kamera</button>
     </header>
 
-    <!-- Navigasi Kategori -->
     <div class="category-nav">
       <div id="category-list" class="category-list"></div>
       <button id="add-cat-btn" class="icon-btn">+</button>
     </div>
 
-    <!-- Area Galeri -->
+    <div id="select-bar" class="select-bar hidden">
+      <div class="select-info">
+        <button id="select-all-btn" class="sm-btn">Pilih Semua</button>
+        <span id="selected-count">0 Terpilih</span>
+      </div>
+      <div class="select-actions">
+        <button id="multi-move-btn" class="sm-btn">📌 Pindah</button>
+        <button id="multi-copy-btn" class="sm-btn">📋 Salin</button>
+        <button id="multi-delete-btn" class="sm-btn danger">🗑️ Hapus</button>
+        <button id="cancel-select-btn" class="sm-btn cancel">❌ Batal</button>
+      </div>
+    </div>
+
     <main id="gallery-grid" class="gallery-grid"></main>
 
-    <!-- Footer -->
     <footer class="app-footer">
       <p>Created by Daus Dopo</p>
     </footer>
   </div>
 
-  <!-- Layout Kamera (Fullscreen Modal) -->
-  <div id="camera-modal" class="modal hidden">
+  <div id="camera-modal" class="modal hidden" oncontextmenu="return false;">
     <div class="camera-layout">
+      <div class="camera-hint">
+        <p>💡 Pastikan pencahayaan cukup | Ketuk tombol lingkaran untuk memotret</p>
+      </div>
       <video id="webcam" autoplay playsinline></video>
       <div class="camera-controls">
         <button id="torch-btn" class="cam-btn">🔦 Senter</button>
@@ -42,7 +53,6 @@
     </div>
   </div>
 
-  <!-- Pop Up Tambah Kategori -->
   <div id="add-cat-modal" class="modal hidden">
     <div class="modal-content">
       <h3>Tambah Kategori Baru</h3>
@@ -54,7 +64,6 @@
     </div>
   </div>
 
-  <!-- Pop Up Edit Kategori -->
   <div id="edit-cat-modal" class="modal hidden">
     <div class="modal-content">
       <div class="edit-header">
@@ -69,22 +78,31 @@
     </div>
   </div>
 
-  <!-- Pop Up Pindah Kategori Foto -->
   <div id="move-photo-modal" class="modal hidden">
     <div class="modal-content">
-      <h3>Pindahkan Foto Ke:</h3>
+      <h3 id="move-modal-title">Pindahkan Foto Terpilih Ke:</h3>
       <select id="move-cat-select"></select>
       <div class="modal-actions">
-        <button id="confirm-move-btn" class="action-btn">Pindahkan</button>
+        <button id="confirm-move-btn" class="action-btn">Proses</button>
         <button id="close-move-btn" class="action-btn cancel">Batal</button>
       </div>
     </div>
   </div>
 
-  <!-- Pop Up Konfirmasi Hapus Kategori -->
+  <div id="confirm-delete-photos-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 class="danger-text">Konfirmasi Hapus Foto</h3>
+      <p id="delete-photos-count-text">Apakah Anda yakin ingin menghapus foto terpilih?</p>
+      <div class="modal-actions">
+        <button id="final-delete-photos-btn" class="danger-btn">Ya, Hapus</button>
+        <button id="close-delete-photos-btn" class="action-btn cancel">Batal</button>
+      </div>
+    </div>
+  </div>
+
   <div id="confirm-delete-modal" class="modal hidden">
     <div class="modal-content">
-      <h3 class="danger-text">Konfirmasi Hapus</h3>
+      <h3 class="danger-text">Konfirmasi Hapus Kategori</h3>
       <p>Ketik kode berikut untuk menghapus kategori: <strong id="random-code-display"></strong></p>
       <input type="text" id="verify-code-input" placeholder="Masukkan kode">
       <div class="modal-actions">

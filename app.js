@@ -3,16 +3,23 @@ let categories = JSON.parse(localStorage.getItem('galeryfir_categories')) || ['S
 let photos = JSON.parse(localStorage.getItem('galeryfir_photos')) || [];
 let activeCategory = 'Semua';
 let activeEditCategory = null;
-let activePhotoIndexToMove = null;
 let mediaStream = null;
 let trackState = null;
 let generatedCode = '';
 
-// Elemen DOM
+// Mode Seleksi Multi-Foto
+let isSelectionMode = false;
+let selectedPhotoIndices = [];
+let pendingActionType = 'move'; // 'move' atau 'copy'
+
+// DOM Elements
 const categoryListEl = document.getElementById('category-list');
 const galleryGridEl = document.getElementById('gallery-grid');
 const webcamEl = document.getElementById('webcam');
 const canvasEl = document.getElementById('photo-canvas');
+
+const selectBarEl = document.getElementById('select-bar');
+const selectedCountEl = document.getElementById('selected-count');
 
 // Modal Elements
 const cameraModal = document.getElementById('camera-modal');
@@ -20,8 +27,11 @@ const addCatModal = document.getElementById('add-cat-modal');
 const editCatModal = document.getElementById('edit-cat-modal');
 const movePhotoModal = document.getElementById('move-photo-modal');
 const confirmDeleteModal = document.getElementById('confirm-delete-modal');
+const confirmDeletePhotosModal = document.getElementById('confirm-delete-photos-modal');
 
-// Inisialisasi
+// Blokir Klik Kanan / Context Menu Bawaan Browser
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+
 function init() {
   renderCategories();
   renderGallery();
@@ -45,6 +55,7 @@ function renderCategories() {
     }
     chip.innerHTML = content;
     chip.onclick = () => {
+      if (isSelectionMode) exitSelectionMode();
       activeCategory = cat;
       renderCategories();
       renderGallery();
@@ -53,26 +64,185 @@ function renderCategories() {
   });
 }
 
-// Render Galeri
+// Render Galeri Foto dengan Long Press Event
 function renderGallery() {
   galleryGridEl.innerHTML = '';
   const filteredPhotos = activeCategory === 'Semua' 
     ? photos 
     : photos.filter(p => p.category === activeCategory);
 
-  filteredPhotos.forEach((photo, index) => {
+  filteredPhotos.forEach((photo) => {
     const realIndex = photos.indexOf(photo);
+    const isSelected = selectedPhotoIndices.includes(realIndex);
+
     const card = document.createElement('div');
-    card.className = 'photo-card';
+    card.className = `photo-card ${isSelected ? 'selected' : ''}`;
+    
+    let badgeHtml = `<span class="photo-badge">${photo.category}</span>`;
+    let selectCheckHtml = isSelectionMode ? `<div class="select-checkbox">${isSelected ? '✓' : ''}</div>` : '';
+
     card.innerHTML = `
+      ${selectCheckHtml}
+      ${badgeHtml}
       <img src="${photo.data}" alt="Foto">
-      <button class="move-btn" onclick="openMoveModal(${realIndex})">📌 ${photo.category}</button>
     `;
+
+    // Penanganan Tekan & Tahan (Long Press) & Klik Normal
+    let pressTimer;
+
+    const startPress = () => {
+      pressTimer = setTimeout(() => {
+        if (!isSelectionMode) {
+          enterSelectionMode(realIndex);
+        }
+      }, 500); // 500ms dianggap tekan dan tahan
+    };
+
+    const cancelPress = () => clearTimeout(pressTimer);
+
+    card.addEventListener('mousedown', startPress);
+    card.addEventListener('mouseup', cancelPress);
+    card.addEventListener('mouseleave', cancelPress);
+
+    card.addEventListener('touchstart', startPress, { passive: true });
+    card.addEventListener('touchend', cancelPress);
+    card.addEventListener('touchcancel', cancelPress);
+
+    card.onclick = () => {
+      if (isSelectionMode) {
+        togglePhotoSelection(realIndex);
+      }
+    };
+
     galleryGridEl.appendChild(card);
   });
 }
 
-// Fitur Kamera & Senter
+// Sistem Seleksi Multi Foto
+function enterSelectionMode(firstIndex) {
+  isSelectionMode = true;
+  selectedPhotoIndices = [firstIndex];
+  selectBarEl.classList.remove('hidden');
+  updateSelectionUI();
+  renderGallery();
+}
+
+function exitSelectionMode() {
+  isSelectionMode = false;
+  selectedPhotoIndices = [];
+  selectBarEl.classList.add('hidden');
+  renderGallery();
+}
+
+function togglePhotoSelection(index) {
+  const pos = selectedPhotoIndices.indexOf(index);
+  if (pos > -1) {
+    selectedPhotoIndices.splice(pos, 1);
+  } else {
+    selectedPhotoIndices.push(index);
+  }
+
+  if (selectedPhotoIndices.length === 0) {
+    exitSelectionMode();
+  } else {
+    updateSelectionUI();
+    renderGallery();
+  }
+}
+
+function updateSelectionUI() {
+  selectedCountEl.innerText = `${selectedPhotoIndices.length} Terpilih`;
+}
+
+// Tombol Pilih Semua
+document.getElementById('select-all-btn').onclick = () => {
+  const currentFiltered = activeCategory === 'Semua' 
+    ? photos 
+    : photos.filter(p => p.category === activeCategory);
+
+  selectedPhotoIndices = currentFiltered.map(p => photos.indexOf(p));
+  updateSelectionUI();
+  renderGallery();
+};
+
+document.getElementById('cancel-select-btn').onclick = exitSelectionMode;
+
+// Pindah Multi Foto (Tanpa Duplikat)
+document.getElementById('multi-move-btn').onclick = () => {
+  if (selectedPhotoIndices.length === 0) return;
+  pendingActionType = 'move';
+  document.getElementById('move-modal-title').innerText = 'Pindahkan Foto Terpilih Ke:';
+  openMoveModal();
+};
+
+// Salin Multi Foto
+document.getElementById('multi-copy-btn').onclick = () => {
+  if (selectedPhotoIndices.length === 0) return;
+  pendingActionType = 'copy';
+  document.getElementById('move-modal-title').innerText = 'Salin Foto Terpilih Ke:';
+  openMoveModal();
+};
+
+function openMoveModal() {
+  const selectEl = document.getElementById('move-cat-select');
+  selectEl.innerHTML = '';
+  categories.forEach(cat => {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    selectEl.appendChild(opt);
+  });
+  movePhotoModal.classList.remove('hidden');
+}
+
+document.getElementById('close-move-btn').onclick = () => movePhotoModal.classList.add('hidden');
+
+document.getElementById('confirm-move-btn').onclick = () => {
+  const targetCat = document.getElementById('move-cat-select').value;
+
+  if (pendingActionType === 'move') {
+    // Ubah kategori foto terpilih tanpa duplikasi
+    selectedPhotoIndices.forEach(idx => {
+      photos[idx].category = targetCat;
+    });
+  } else if (pendingActionType === 'copy') {
+    // Buat salinan foto baru ke kategori target
+    selectedPhotoIndices.forEach(idx => {
+      photos.push({
+        data: photos[idx].data,
+        category: targetCat
+      });
+    });
+  }
+
+  saveData();
+  movePhotoModal.classList.add('hidden');
+  exitSelectionMode();
+};
+
+// Hapus Multi Foto dengan Konfirmasi
+document.getElementById('multi-delete-btn').onclick = () => {
+  if (selectedPhotoIndices.length === 0) return;
+  document.getElementById('delete-photos-count-text').innerText = 
+    `Apakah Anda yakin ingin menghapus ${selectedPhotoIndices.length} foto terpilih?`;
+  confirmDeletePhotosModal.classList.remove('hidden');
+};
+
+document.getElementById('close-delete-photos-btn').onclick = () => confirmDeletePhotosModal.classList.add('hidden');
+
+document.getElementById('final-delete-photos-btn').onclick = () => {
+  // Urutkan dari indeks terbesar ke terkecil agar penghapusan tidak merusak indeks
+  selectedPhotoIndices.sort((a, b) => b - a);
+  selectedPhotoIndices.forEach(idx => {
+    photos.splice(idx, 1);
+  });
+
+  saveData();
+  confirmDeletePhotosModal.classList.add('hidden');
+  exitSelectionMode();
+};
+
+// Kamera & Senter
 document.getElementById('open-cam-btn').onclick = async () => {
   cameraModal.classList.remove('hidden');
   try {
@@ -125,7 +295,7 @@ document.getElementById('capture-btn').onclick = () => {
   stopCamera();
 };
 
-// Fitur Tambah Kategori
+// Tambah Kategori
 document.getElementById('add-cat-btn').onclick = () => addCatModal.classList.remove('hidden');
 document.getElementById('close-add-cat-btn').onclick = () => addCatModal.classList.add('hidden');
 
@@ -141,7 +311,7 @@ document.getElementById('save-cat-btn').onclick = () => {
   }
 };
 
-// Fitur Edit & Hapus Kategori
+// Edit & Hapus Kategori
 window.openEditCategoryModal = (event, catName) => {
   event.stopPropagation();
   activeEditCategory = catName;
@@ -194,32 +364,5 @@ document.getElementById('final-delete-btn').onclick = () => {
   }
 };
 
-// Fitur Memindahkan Foto
-window.openMoveModal = (index) => {
-  activePhotoIndexToMove = index;
-  const selectEl = document.getElementById('move-cat-select');
-  selectEl.innerHTML = '';
-  categories.forEach(cat => {
-    const opt = document.createElement('option');
-    opt.value = cat;
-    opt.textContent = cat;
-    if (cat === photos[index].category) opt.selected = true;
-    selectEl.appendChild(opt);
-  });
-  movePhotoModal.classList.remove('hidden');
-};
-
-document.getElementById('close-move-btn').onclick = () => movePhotoModal.classList.add('hidden');
-
-document.getElementById('confirm-move-btn').onclick = () => {
-  const selectedCat = document.getElementById('move-cat-select').value;
-  if (activePhotoIndexToMove !== null) {
-    photos[activePhotoIndexToMove].category = selectedCat;
-    saveData();
-    renderGallery();
-    movePhotoModal.classList.add('hidden');
-  }
-};
-
-// Jalankan saat pertama dimuat
+// Jalankan inisialisasi awal
 init();
