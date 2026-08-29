@@ -5,6 +5,7 @@ let activeCategory = 'Semua';
 let activeEditCategory = null;
 let mediaStream = null;
 let trackState = null;
+let isTorchOn = false; // State untuk toggle senter
 let generatedCode = '';
 let currentViewPhotoIndex = null;
 
@@ -19,6 +20,7 @@ const galleryContainerEl = document.getElementById('gallery-container');
 const webcamEl = document.getElementById('webcam');
 const canvasEl = document.getElementById('photo-canvas');
 const flashOverlayEl = document.getElementById('camera-flash-overlay');
+const torchBtn = document.getElementById('torch-btn');
 
 const selectBarEl = document.getElementById('select-bar');
 const selectedCountEl = document.getElementById('selected-count');
@@ -58,7 +60,7 @@ function migratePhotoTimestamps() {
   let changed = false;
   photos.forEach((p, index) => {
     if (!p.timestamp) {
-      p.timestamp = Date.now() - (index * 1000); // Penanganan fallback jika foto lama tidak memiliki timestamp
+      p.timestamp = Date.now() - (index * 1000);
       changed = true;
     }
   });
@@ -83,7 +85,7 @@ function formatFullDateTime(timestamp) {
   return `${hours}.${minutes} WIB, ${dayName} ${dayNum} ${monthName} ${year}`;
 }
 
-// Format Judul Pengelompokan Tanggal (Misal: Hari ini, Kemarin, Minggu 30 Agustus 2026)
+// Format Judul Pengelompokan Tanggal
 function formatDateHeader(timestamp) {
   const d = new Date(timestamp);
   const today = new Date();
@@ -123,16 +125,14 @@ function renderCategories() {
   });
 }
 
-// Render Galeri Foto Dikategori Menurut Waktu (Pengelompokan Waktu)
+// Render Galeri Foto Dikelompokkan Menurut Tanggal
 function renderGallery() {
   galleryContainerEl.innerHTML = '';
   
-  // Filter berdasarkan kategori aktif
   const filteredPhotos = activeCategory === 'Semua' 
     ? photos 
     : photos.filter(p => p.category === activeCategory);
 
-  // Kelompokkan foto berdasarkan tanggal
   const groupedByDate = {};
 
   filteredPhotos.forEach(photo => {
@@ -143,7 +143,6 @@ function renderGallery() {
     groupedByDate[dateKey].push(photo);
   });
 
-  // Urutkan grup tanggal dari yang terbaru
   const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a));
 
   sortedDates.forEach(dateKey => {
@@ -175,7 +174,6 @@ function renderGallery() {
         <img src="${photo.data}" alt="Foto">
       `;
 
-      // Long Press & Klik Handler
       let pressTimer;
 
       const startPress = () => {
@@ -232,17 +230,14 @@ document.getElementById('details-single-btn').onclick = () => {
   if (currentViewPhotoIndex !== null) {
     const photo = photos[currentViewPhotoIndex];
 
-    // Hitung Waktu
     document.getElementById('detail-time').innerText = formatFullDateTime(photo.timestamp);
     document.getElementById('detail-category').innerText = photo.category;
 
-    // Hitung Estimasi Ukuran File (Base64)
     const stringLength = photo.data.length - 'data:image/png;base64,'.length;
     const sizeInBytes = 4 * Math.ceil(stringLength / 3) * 0.5624896;
     const sizeInKB = (sizeInBytes / 1024).toFixed(1);
     document.getElementById('detail-size').innerText = `${sizeInKB} KB`;
 
-    // Hitung Dimensi Foto
     const tempImg = new Image();
     tempImg.src = photo.data;
     tempImg.onload = () => {
@@ -257,14 +252,14 @@ document.getElementById('close-details-btn').onclick = () => {
   photoDetailsModal.classList.add('hidden');
 };
 
-// Unduh Foto dari Viewer Fullscreen
+// Unduh Single Foto
 document.getElementById('download-single-btn').onclick = () => {
   if (currentViewPhotoIndex !== null) {
     executeDownload(photos[currentViewPhotoIndex].data, `Galeryfir_${Date.now()}.png`);
   }
 };
 
-// Hapus Foto dari Viewer Fullscreen dengan Konfirmasi
+// Hapus Single Foto
 document.getElementById('delete-single-btn').onclick = () => {
   if (currentViewPhotoIndex !== null) {
     confirmDeleteSingleModal.classList.remove('hidden');
@@ -286,7 +281,6 @@ document.getElementById('final-delete-single-btn').onclick = () => {
   }
 };
 
-// Eksekusi Unduh File
 function executeDownload(dataUrl, filename) {
   const link = document.createElement('a');
   link.href = dataUrl;
@@ -449,9 +443,12 @@ document.getElementById('final-delete-photos-btn').onclick = () => {
   exitSelectionMode();
 };
 
-// Kamera & Senter
+// Open Camera
 document.getElementById('open-cam-btn').onclick = async () => {
   cameraModal.classList.remove('hidden');
+  isTorchOn = false;
+  updateTorchButtonUI();
+
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment' }
@@ -467,49 +464,88 @@ document.getElementById('open-cam-btn').onclick = async () => {
 document.getElementById('close-cam-btn').onclick = stopCamera;
 
 function stopCamera() {
+  if (isTorchOn) {
+    toggleTorch(false);
+  }
   if (mediaStream) {
     mediaStream.getTracks().forEach(track => track.stop());
   }
   cameraModal.classList.add('hidden');
 }
 
-document.getElementById('torch-btn').onclick = async () => {
-  if (trackState) {
-    const capabilities = trackState.getCapabilities();
-    if (capabilities.torch) {
-      const currentMode = trackState.getConstraints().torch;
-      await trackState.applyConstraints({ advanced: [{ torch: !currentMode }] });
-    } else {
-      alert('Fitur senter tidak didukung di perangkat ini.');
-    }
+// Update Tampilan Tombol Senter
+function updateTorchButtonUI() {
+  if (isTorchOn) {
+    torchBtn.innerText = '💡 Senter: ON';
+    torchBtn.style.background = '#00ffcc';
+    torchBtn.style.color = '#000';
+  } else {
+    torchBtn.innerText = '🔦 Senter: OFF';
+    torchBtn.style.background = '#333';
+    torchBtn.style.color = '#fff';
   }
+}
+
+// Fix: Toggle Senter dinyalakan/dimatikan
+torchBtn.onclick = () => {
+  toggleTorch(!isTorchOn);
 };
 
-// Memotret Foto dengan Timestamp Real-Time & Kedip Kamera
+async function toggleTorch(turnOn) {
+  isTorchOn = turnOn;
+  updateTorchButtonUI();
+
+  if (trackState) {
+    try {
+      const capabilities = trackState.getCapabilities ? trackState.getCapabilities() : {};
+      if (capabilities.torch) {
+        await trackState.applyConstraints({
+          advanced: [{ torch: isTorchOn }]
+        });
+        return;
+      }
+    } catch (e) {
+      console.log('Senter hardware tidak merespons, menggunakan Screen Flash.');
+    }
+  }
+
+  // Fallback ke Screen Flash jika perangkat tidak mendukung Senter hardware
+  if (isTorchOn) {
+    flashOverlayEl.style.opacity = '0.7';
+    flashOverlayEl.style.pointerEvents = 'none';
+  } else {
+    flashOverlayEl.style.opacity = '0';
+  }
+}
+
+// Fix: Kedip Kamera Saat Motret
 document.getElementById('capture-btn').onclick = () => {
-  // 1. Trigger Efek Kedip Layar (Flash)
-  flashOverlayEl.classList.add('active');
+  // 1. Efek Kedip Kamera Real-Time (Flash Effect)
+  flashOverlayEl.style.transition = 'none';
+  flashOverlayEl.style.opacity = '1';
+
   setTimeout(() => {
-    flashOverlayEl.classList.remove('active');
-  }, 100);
+    flashOverlayEl.style.transition = 'opacity 0.25s ease-out';
+    flashOverlayEl.style.opacity = isTorchOn ? '0.7' : '0';
+  }, 80);
 
   // 2. Ambil Gambar dari Webcam
   const context = canvasEl.getContext('2d');
-  canvasEl.width = webcamEl.videoWidth;
-  canvasEl.height = webcamEl.videoHeight;
+  canvasEl.width = webcamEl.videoWidth || 640;
+  canvasEl.height = webcamEl.videoHeight || 480;
   context.drawImage(webcamEl, 0, 0, canvasEl.width, canvasEl.height);
   
   const photoData = canvasEl.toDataURL('image/png');
   photos.push({
     data: photoData,
     category: 'Semua',
-    timestamp: Date.now() // Catat Waktu Real-Time Saat Dipotret
+    timestamp: Date.now()
   });
   
   saveData();
-  renderGallery(); // Perbarui galeri tanpa menutup kamera
+  renderGallery();
 
-  // 3. Notifikasi Teks Singkat
+  // 3. Notifikasi Teks
   const noticeEl = document.getElementById('cam-flash-notice');
   const originalText = noticeEl.innerText;
   noticeEl.innerText = '📸 Foto Tersimpan!';
