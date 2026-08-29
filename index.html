@@ -56,8 +56,41 @@
         <img id="viewer-img" src="" alt="Pratinjau Foto">
       </div>
       <div class="viewer-footer">
-        <button id="download-single-btn" class="glow-btn">⬇️ Unduh Foto</button>
-        <button id="delete-single-btn" class="danger-btn">🗑️ Hapus Foto</button>
+        <button id="info-single-btn" class="sm-btn">ℹ️ Rincian</button>
+        <button id="download-single-btn" class="glow-btn">⬇️ Unduh</button>
+        <button id="delete-single-btn" class="danger-btn">🗑️ Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pop Up Rincian Foto (Detail Modal) -->
+  <div id="photo-detail-modal" class="modal hidden">
+    <div class="modal-content info-modal-content">
+      <h3>ℹ️ Rincian Foto</h3>
+      <div class="info-list">
+        <div class="info-item">
+          <span class="info-label">Kategori Album:</span>
+          <span id="info-cat" class="info-val">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Waktu Dipotret:</span>
+          <span id="info-time" class="info-val">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Sejak Dipotret:</span>
+          <span id="info-time-ago" class="info-val highlight-val">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Resolusi:</span>
+          <span id="info-resolution" class="info-val">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Estimasi Ukuran:</span>
+          <span id="info-size" class="info-val">-</span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="close-detail-btn" class="action-btn">Tutup</button>
       </div>
     </div>
   </div>

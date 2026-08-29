@@ -32,6 +32,7 @@ const movePhotoModal = document.getElementById('move-photo-modal');
 const confirmDeleteModal = document.getElementById('confirm-delete-modal');
 const confirmDeletePhotosModal = document.getElementById('confirm-delete-photos-modal');
 const confirmDeleteSingleModal = document.getElementById('confirm-delete-single-modal');
+const photoDetailModal = document.getElementById('photo-detail-modal');
 
 // Viewer Elements
 const photoViewerModal = document.getElementById('photo-viewer-modal');
@@ -51,15 +52,81 @@ function saveData() {
   localStorage.setItem('galeryfir_photos', JSON.stringify(photos));
 }
 
-// Render Navigasi Kategori
+// Format Waktu Galeri HP (Contoh: "15.00 WIB, Minggu 30 Agustus 2026")
+function formatFullDateTime(timestamp) {
+  const date = new Date(timestamp);
+  const hariArr = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const bulanArr = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const hari = hariArr[date.getDay()];
+  const tgl = date.getDate();
+  const bln = bulanArr[date.getMonth()];
+  const thn = date.getFullYear();
+
+  return `${hh}.${mm} WIB, ${hari} ${tgl} ${bln} ${thn}`;
+}
+
+// Label Kategori Waktu Singkat
+function getTimeCategoryLabel(timestamp) {
+  const photoDate = new Date(timestamp);
+  const now = new Date();
+
+  const isToday = photoDate.toDateString() === now.toDateString();
+  if (isToday) return 'Hari Ini';
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (photoDate.toDateString() === yesterday.toDateString()) return 'Kemarin';
+
+  const hariArr = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const bulanArr = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+  return `${hariArr[photoDate.getDay()]}, ${photoDate.getDate()} ${bulanArr[photoDate.getMonth()]} ${photoDate.getFullYear()}`;
+}
+
+// Format Perhitungan Waktu Berlalu
+function timeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return `${Math.max(1, seconds)} detik yang lalu`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} menit yang lalu`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} jam yang lalu`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} hari yang lalu`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} bulan yang lalu`;
+
+  const years = Math.floor(months / 12);
+  return `${years} tahun yang lalu`;
+}
+
+// Render Navigasi Kategori Kustom + Kategori Waktu Otomatis
 function renderCategories() {
   categoryListEl.innerHTML = '';
-  categories.forEach(cat => {
+
+  // Dapatkan semua Kategori Waktu dari foto-foto yang ada
+  const timeCategories = [...new Set(photos.map(p => getTimeCategoryLabel(p.timestamp || Date.now())))];
+
+  // Combine semua kategori
+  const allNavList = [...categories];
+  timeCategories.forEach(tc => {
+    if (!allNavList.includes(tc)) allNavList.push(tc);
+  });
+
+  allNavList.forEach(cat => {
+    const isTimeCat = timeCategories.includes(cat) && !categories.includes(cat);
     const chip = document.createElement('div');
-    chip.className = `cat-chip ${cat === activeCategory ? 'active' : ''}`;
+    chip.className = `cat-chip ${cat === activeCategory ? 'active' : ''} ${isTimeCat ? 'time-chip' : ''}`;
     
-    let content = `<span>${cat}</span>`;
-    if (cat !== 'Semua') {
+    let content = `<span>${isTimeCat ? '📅 ' : ''}${cat}</span>`;
+    if (!isTimeCat && cat !== 'Semua') {
       content += `<span class="edit-cat-trigger" onclick="openEditCategoryModal(event, '${cat}')">⚙️</span>`;
     }
     chip.innerHTML = content;
@@ -73,12 +140,16 @@ function renderCategories() {
   });
 }
 
-// Render Galeri Foto (Tanpa Tombol Unduh di Beranda)
+// Render Galeri Foto
 function renderGallery() {
   galleryGridEl.innerHTML = '';
-  const filteredPhotos = activeCategory === 'Semua' 
-    ? photos 
-    : photos.filter(p => p.category === activeCategory);
+  
+  const filteredPhotos = photos.filter(p => {
+    if (activeCategory === 'Semua') return true;
+    if (categories.includes(activeCategory)) return p.category === activeCategory;
+    // Filter Kategori Waktu
+    return getTimeCategoryLabel(p.timestamp || Date.now()) === activeCategory;
+  });
 
   filteredPhotos.forEach((photo) => {
     const realIndex = photos.indexOf(photo);
@@ -88,10 +159,12 @@ function renderGallery() {
     card.className = `photo-card ${isSelected ? 'selected' : ''}`;
     
     let selectCheckHtml = isSelectionMode ? `<div class="select-checkbox">${isSelected ? '✓' : ''}</div>` : '';
+    let timeLabel = getTimeCategoryLabel(photo.timestamp || Date.now());
 
     card.innerHTML = `
       ${selectCheckHtml}
       <img src="${photo.data}" alt="Foto">
+      <div class="photo-card-time">${timeLabel}</div>
     `;
 
     // Long Press & Klik Handler
@@ -142,6 +215,40 @@ document.getElementById('close-viewer-btn').onclick = () => {
   currentViewPhotoIndex = null;
 };
 
+// Pop Up Rincian / Detail Foto
+document.getElementById('info-single-btn').onclick = () => {
+  if (currentViewPhotoIndex !== null) {
+    const photo = photos[currentViewPhotoIndex];
+    const ts = photo.timestamp || Date.now();
+
+    document.getElementById('info-cat').innerText = photo.category;
+    document.getElementById('info-time').innerText = formatFullDateTime(ts);
+    document.getElementById('info-time-ago').innerText = timeAgo(ts);
+
+    // Hitung Estimasi Ukuran & Resolusi
+    const tempImg = new Image();
+    tempImg.src = photo.data;
+    tempImg.onload = () => {
+      document.getElementById('info-resolution').innerText = `${tempImg.width} x ${tempImg.height} piksel`;
+      
+      // Estimasi KB/MB dari String Base64
+      const stringLength = photo.data.length - 'data:image/png;base64,'.length;
+      const sizeInBytes = 4 * Math.ceil(stringLength / 3) * 0.5624;
+      const sizeInKB = (sizeInBytes / 1024).toFixed(1);
+      
+      document.getElementById('info-size').innerText = sizeInKB > 1024 
+        ? `${(sizeInKB / 1024).toFixed(2)} MB` 
+        : `${sizeInKB} KB`;
+    };
+
+    photoDetailModal.classList.remove('hidden');
+  }
+};
+
+document.getElementById('close-detail-btn').onclick = () => {
+  photoDetailModal.classList.add('hidden');
+};
+
 // Unduh Foto dari Viewer Fullscreen
 document.getElementById('download-single-btn').onclick = () => {
   if (currentViewPhotoIndex !== null) {
@@ -167,6 +274,7 @@ document.getElementById('final-delete-single-btn').onclick = () => {
     confirmDeleteSingleModal.classList.add('hidden');
     photoViewerModal.classList.add('hidden');
     currentViewPhotoIndex = null;
+    renderCategories();
     renderGallery();
   }
 };
@@ -218,11 +326,13 @@ function updateSelectionUI() {
 }
 
 function updateToggleSelectAllButtonState() {
-  const currentFiltered = activeCategory === 'Semua' 
-    ? photos 
-    : photos.filter(p => p.category === activeCategory);
+  const filteredPhotos = photos.filter(p => {
+    if (activeCategory === 'Semua') return true;
+    if (categories.includes(activeCategory)) return p.category === activeCategory;
+    return getTimeCategoryLabel(p.timestamp || Date.now()) === activeCategory;
+  });
 
-  const allFilteredIndices = currentFiltered.map(p => photos.indexOf(p));
+  const allFilteredIndices = filteredPhotos.map(p => photos.indexOf(p));
   const isAllSelected = allFilteredIndices.length > 0 && allFilteredIndices.every(idx => selectedPhotoIndices.includes(idx));
 
   if (isAllSelected) {
@@ -233,11 +343,13 @@ function updateToggleSelectAllButtonState() {
 }
 
 toggleSelectAllBtn.onclick = () => {
-  const currentFiltered = activeCategory === 'Semua' 
-    ? photos 
-    : photos.filter(p => p.category === activeCategory);
+  const filteredPhotos = photos.filter(p => {
+    if (activeCategory === 'Semua') return true;
+    if (categories.includes(activeCategory)) return p.category === activeCategory;
+    return getTimeCategoryLabel(p.timestamp || Date.now()) === activeCategory;
+  });
 
-  const allFilteredIndices = currentFiltered.map(p => photos.indexOf(p));
+  const allFilteredIndices = filteredPhotos.map(p => photos.indexOf(p));
   const isAllSelected = allFilteredIndices.every(idx => selectedPhotoIndices.includes(idx));
 
   if (isAllSelected) {
@@ -302,7 +414,8 @@ document.getElementById('confirm-move-btn').onclick = () => {
     selectedPhotoIndices.forEach(idx => {
       photos.push({
         data: photos[idx].data,
-        category: targetCat
+        category: targetCat,
+        timestamp: photos[idx].timestamp || Date.now()
       });
     });
   }
@@ -331,6 +444,7 @@ document.getElementById('final-delete-photos-btn').onclick = () => {
   saveData();
   confirmDeletePhotosModal.classList.add('hidden');
   exitSelectionMode();
+  renderCategories();
 };
 
 // Kamera & Senter
@@ -369,7 +483,7 @@ document.getElementById('torch-btn').onclick = async () => {
   }
 };
 
-// Memotret Foto dengan Sistem Kedip Kamera
+// Memotret Foto dengan Timestamp & Kedip Kamera
 document.getElementById('capture-btn').onclick = () => {
   // 1. Trigger Efek Kedip Layar (Flash)
   flashOverlayEl.classList.add('active');
@@ -386,11 +500,13 @@ document.getElementById('capture-btn').onclick = () => {
   const photoData = canvasEl.toDataURL('image/png');
   photos.push({
     data: photoData,
-    category: 'Semua'
+    category: 'Semua',
+    timestamp: Date.now() // Simpan waktu terpotret
   });
   
   saveData();
-  renderGallery(); // Perbarui galeri tanpa menutup kamera
+  renderCategories();
+  renderGallery();
 
   // 3. Notifikasi Teks Singkat
   const noticeEl = document.getElementById('cam-flash-notice');
