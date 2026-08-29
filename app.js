@@ -36,7 +36,7 @@ const photoViewerModal = document.getElementById('photo-viewer-modal');
 const viewerImg = document.getElementById('viewer-img');
 const viewerCategoryTag = document.getElementById('viewer-category-tag');
 
-// Blokir Context Menu
+// Blokir Context Menu Bawaan Browser
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function init() {
@@ -71,7 +71,7 @@ function renderCategories() {
   });
 }
 
-// Render Galeri Foto
+// Render Galeri Foto (Tanpa Tombol Unduh di Kartu Foto)
 function renderGallery() {
   galleryGridEl.innerHTML = '';
   const filteredPhotos = activeCategory === 'Semua' 
@@ -86,12 +86,10 @@ function renderGallery() {
     card.className = `photo-card ${isSelected ? 'selected' : ''}`;
     
     let selectCheckHtml = isSelectionMode ? `<div class="select-checkbox">${isSelected ? '✓' : ''}</div>` : '';
-    let downloadBtnHtml = !isSelectionMode ? `<button class="photo-download-btn" onclick="downloadSinglePhoto(event, ${realIndex})">⬇️</button>` : '';
 
     card.innerHTML = `
       ${selectCheckHtml}
       <img src="${photo.data}" alt="Foto">
-      ${downloadBtnHtml}
     `;
 
     // Long Press & Klik Handler
@@ -115,14 +113,11 @@ function renderGallery() {
     card.addEventListener('touchend', cancelPress);
     card.addEventListener('touchcancel', cancelPress);
 
-    card.onclick = (e) => {
+    card.onclick = () => {
       if (isSelectionMode) {
         togglePhotoSelection(realIndex);
       } else {
-        // Jika bukan tombol unduh yang diklik, buka Viewer
-        if (!e.target.classList.contains('photo-download-btn')) {
-          openPhotoViewer(realIndex);
-        }
+        openPhotoViewer(realIndex);
       }
     };
 
@@ -151,7 +146,7 @@ document.getElementById('download-single-btn').onclick = () => {
   }
 };
 
-// System Unduh Gambar
+// Eksekusi Unduh File
 function executeDownload(dataUrl, filename) {
   const link = document.createElement('a');
   link.href = dataUrl;
@@ -160,11 +155,6 @@ function executeDownload(dataUrl, filename) {
   link.click();
   document.body.removeChild(link);
 }
-
-window.downloadSinglePhoto = (event, index) => {
-  event.stopPropagation();
-  executeDownload(photos[index].data, `Galeryfir_${Date.now()}.png`);
-};
 
 // Mode Seleksi Multi-Foto
 function enterSelectionMode(firstIndex) {
@@ -202,7 +192,7 @@ function updateSelectionUI() {
   selectedCountEl.innerText = `${selectedPhotoIndices.length} Terpilih`;
 }
 
-// Tombol Toggle "Pilih Semua" / "Batal Pilih Semua"
+// Toggle Tombol "Pilih Semua" / "Batal Pilih Semua"
 function updateToggleSelectAllButtonState() {
   const currentFiltered = activeCategory === 'Semua' 
     ? photos 
@@ -227,11 +217,9 @@ toggleSelectAllBtn.onclick = () => {
   const isAllSelected = allFilteredIndices.every(idx => selectedPhotoIndices.includes(idx));
 
   if (isAllSelected) {
-    // Batalkan semua seleksi untuk kategori aktif
     selectedPhotoIndices = selectedPhotoIndices.filter(idx => !allFilteredIndices.includes(idx));
     if (selectedPhotoIndices.length === 0) exitSelectionMode();
   } else {
-    // Pilih semua foto di kategori aktif
     selectedPhotoIndices = Array.from(new Set([...selectedPhotoIndices, ...allFilteredIndices]));
   }
 
@@ -239,12 +227,12 @@ toggleSelectAllBtn.onclick = () => {
   renderGallery();
 };
 
-// Download Banyak Foto
+// Unduh Foto Terpilih
 document.getElementById('multi-download-btn').onclick = () => {
   selectedPhotoIndices.forEach((idx, i) => {
     setTimeout(() => {
       executeDownload(photos[idx].data, `Galeryfir_${Date.now()}_${i + 1}.png`);
-    }, i * 300); // Penundaan kecil agar browser mengizinkan unduhan bertahap
+    }, i * 300);
   });
 };
 
@@ -357,6 +345,7 @@ document.getElementById('torch-btn').onclick = async () => {
   }
 };
 
+// Memotret Foto Tanpa Menutup Layout Kamera
 document.getElementById('capture-btn').onclick = () => {
   const context = canvasEl.getContext('2d');
   canvasEl.width = webcamEl.videoWidth;
@@ -370,8 +359,18 @@ document.getElementById('capture-btn').onclick = () => {
   });
   
   saveData();
-  renderGallery();
-  stopCamera();
+  renderGallery(); // Perbarui galeri secara langsung di latar belakang
+
+  // Efek Flash & Notifikasi Kecil Saat Memotret
+  const noticeEl = document.getElementById('cam-flash-notice');
+  const originalText = noticeEl.innerText;
+  noticeEl.innerText = '📸 Foto Tersimpan!';
+  noticeEl.style.color = '#ff007f';
+
+  setTimeout(() => {
+    noticeEl.innerText = originalText;
+    noticeEl.style.color = '#00ffcc';
+  }, 1200);
 };
 
 // Tambah Kategori

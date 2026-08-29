@@ -182,23 +182,6 @@ body {
   pointer-events: none;
 }
 
-.photo-download-btn {
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  background: rgba(0, 0, 0, 0.7);
-  border: 1px solid #ff007f;
-  color: #fff;
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  cursor: pointer;
-}
-
 .select-checkbox {
   position: absolute;
   top: 6px;
@@ -403,4 +386,9 @@ body {
   border-radius: 50%;
   background: #ff007f;
   border: 3px solid #fff;
+  transition: transform 0.1s ease;
+}
+
+.capture-circle:active {
+  transform: scale(0.9);
 }
