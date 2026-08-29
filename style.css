@@ -273,7 +273,7 @@ body {
   background: #ff3333;
   color: #fff;
   border: none;
-  padding: 6px 10px;
+  padding: 8px 14px;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -330,10 +330,11 @@ body {
 .viewer-footer {
   display: flex;
   justify-content: center;
+  gap: 12px;
   padding-bottom: 10px;
 }
 
-/* Kamera Layout */
+/* Kamera Layout & Flash Kedip */
 .camera-layout {
   width: 100%;
   height: 100%;
@@ -342,6 +343,21 @@ body {
   justify-content: space-between;
   background: #000;
   position: relative;
+  overflow: hidden;
+}
+
+.flash-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 20;
+  transition: opacity 0.05s ease-in-out;
+}
+
+.flash-overlay.active {
+  opacity: 0.9;
 }
 
 .camera-hint {

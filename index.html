@@ -57,6 +57,7 @@
       </div>
       <div class="viewer-footer">
         <button id="download-single-btn" class="glow-btn">⬇️ Unduh Foto</button>
+        <button id="delete-single-btn" class="danger-btn">🗑️ Hapus Foto</button>
       </div>
     </div>
   </div>
@@ -64,6 +65,9 @@
   <!-- Layout Kamera -->
   <div id="camera-modal" class="modal hidden" oncontextmenu="return false;">
     <div class="camera-layout">
+      <!-- Overlay Flash Kedip Kamera -->
+      <div id="camera-flash-overlay" class="flash-overlay"></div>
+
       <div class="camera-hint">
         <p id="cam-flash-notice">💡 Pastikan pencahayaan cukup | Ketuk tombol lingkaran untuk memotret</p>
       </div>
@@ -115,7 +119,19 @@
     </div>
   </div>
 
-  <!-- Pop Up Konfirmasi Hapus Foto -->
+  <!-- Pop Up Konfirmasi Hapus Single Foto (Viewer) -->
+  <div id="confirm-delete-single-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 class="danger-text">Konfirmasi Hapus Foto</h3>
+      <p>Apakah Anda yakin ingin menghapus foto ini?</p>
+      <div class="modal-actions">
+        <button id="final-delete-single-btn" class="danger-btn">Ya, Hapus</button>
+        <button id="close-delete-single-btn" class="action-btn cancel">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pop Up Konfirmasi Hapus Multi Foto -->
   <div id="confirm-delete-photos-modal" class="modal hidden">
     <div class="modal-content">
       <h3 class="danger-text">Konfirmasi Hapus Foto</h3>

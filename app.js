@@ -18,6 +18,7 @@ const categoryListEl = document.getElementById('category-list');
 const galleryGridEl = document.getElementById('gallery-grid');
 const webcamEl = document.getElementById('webcam');
 const canvasEl = document.getElementById('photo-canvas');
+const flashOverlayEl = document.getElementById('camera-flash-overlay');
 
 const selectBarEl = document.getElementById('select-bar');
 const selectedCountEl = document.getElementById('selected-count');
@@ -30,6 +31,7 @@ const editCatModal = document.getElementById('edit-cat-modal');
 const movePhotoModal = document.getElementById('move-photo-modal');
 const confirmDeleteModal = document.getElementById('confirm-delete-modal');
 const confirmDeletePhotosModal = document.getElementById('confirm-delete-photos-modal');
+const confirmDeleteSingleModal = document.getElementById('confirm-delete-single-modal');
 
 // Viewer Elements
 const photoViewerModal = document.getElementById('photo-viewer-modal');
@@ -71,7 +73,7 @@ function renderCategories() {
   });
 }
 
-// Render Galeri Foto (Tanpa Tombol Unduh di Kartu Foto)
+// Render Galeri Foto (Tanpa Tombol Unduh di Beranda)
 function renderGallery() {
   galleryGridEl.innerHTML = '';
   const filteredPhotos = activeCategory === 'Semua' 
@@ -140,9 +142,32 @@ document.getElementById('close-viewer-btn').onclick = () => {
   currentViewPhotoIndex = null;
 };
 
+// Unduh Foto dari Viewer Fullscreen
 document.getElementById('download-single-btn').onclick = () => {
   if (currentViewPhotoIndex !== null) {
     executeDownload(photos[currentViewPhotoIndex].data, `Galeryfir_${Date.now()}.png`);
+  }
+};
+
+// Hapus Foto dari Viewer Fullscreen dengan Konfirmasi
+document.getElementById('delete-single-btn').onclick = () => {
+  if (currentViewPhotoIndex !== null) {
+    confirmDeleteSingleModal.classList.remove('hidden');
+  }
+};
+
+document.getElementById('close-delete-single-btn').onclick = () => {
+  confirmDeleteSingleModal.classList.add('hidden');
+};
+
+document.getElementById('final-delete-single-btn').onclick = () => {
+  if (currentViewPhotoIndex !== null) {
+    photos.splice(currentViewPhotoIndex, 1);
+    saveData();
+    confirmDeleteSingleModal.classList.add('hidden');
+    photoViewerModal.classList.add('hidden');
+    currentViewPhotoIndex = null;
+    renderGallery();
   }
 };
 
@@ -192,7 +217,6 @@ function updateSelectionUI() {
   selectedCountEl.innerText = `${selectedPhotoIndices.length} Terpilih`;
 }
 
-// Toggle Tombol "Pilih Semua" / "Batal Pilih Semua"
 function updateToggleSelectAllButtonState() {
   const currentFiltered = activeCategory === 'Semua' 
     ? photos 
@@ -227,7 +251,7 @@ toggleSelectAllBtn.onclick = () => {
   renderGallery();
 };
 
-// Unduh Foto Terpilih
+// Multi Download
 document.getElementById('multi-download-btn').onclick = () => {
   selectedPhotoIndices.forEach((idx, i) => {
     setTimeout(() => {
@@ -345,8 +369,15 @@ document.getElementById('torch-btn').onclick = async () => {
   }
 };
 
-// Memotret Foto Tanpa Menutup Layout Kamera
+// Memotret Foto dengan Sistem Kedip Kamera
 document.getElementById('capture-btn').onclick = () => {
+  // 1. Trigger Efek Kedip Layar (Flash)
+  flashOverlayEl.classList.add('active');
+  setTimeout(() => {
+    flashOverlayEl.classList.remove('active');
+  }, 100);
+
+  // 2. Ambil Gambar dari Webcam
   const context = canvasEl.getContext('2d');
   canvasEl.width = webcamEl.videoWidth;
   canvasEl.height = webcamEl.videoHeight;
@@ -359,9 +390,9 @@ document.getElementById('capture-btn').onclick = () => {
   });
   
   saveData();
-  renderGallery(); // Perbarui galeri secara langsung di latar belakang
+  renderGallery(); // Perbarui galeri tanpa menutup kamera
 
-  // Efek Flash & Notifikasi Kecil Saat Memotret
+  // 3. Notifikasi Teks Singkat
   const noticeEl = document.getElementById('cam-flash-notice');
   const originalText = noticeEl.innerText;
   noticeEl.innerText = '📸 Foto Tersimpan!';
