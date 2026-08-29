@@ -15,7 +15,7 @@ let pendingActionType = 'move';
 
 // DOM Elements
 const categoryListEl = document.getElementById('category-list');
-const galleryGridEl = document.getElementById('gallery-grid');
+const galleryContainerEl = document.getElementById('gallery-container');
 const webcamEl = document.getElementById('webcam');
 const canvasEl = document.getElementById('photo-canvas');
 const flashOverlayEl = document.getElementById('camera-flash-overlay');
@@ -32,7 +32,7 @@ const movePhotoModal = document.getElementById('move-photo-modal');
 const confirmDeleteModal = document.getElementById('confirm-delete-modal');
 const confirmDeletePhotosModal = document.getElementById('confirm-delete-photos-modal');
 const confirmDeleteSingleModal = document.getElementById('confirm-delete-single-modal');
-const photoDetailModal = document.getElementById('photo-detail-modal');
+const photoDetailsModal = document.getElementById('photo-details-modal');
 
 // Viewer Elements
 const photoViewerModal = document.getElementById('photo-viewer-modal');
@@ -43,6 +43,7 @@ const viewerCategoryTag = document.getElementById('viewer-category-tag');
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 function init() {
+  migratePhotoTimestamps();
   renderCategories();
   renderGallery();
 }
@@ -52,81 +53,63 @@ function saveData() {
   localStorage.setItem('galeryfir_photos', JSON.stringify(photos));
 }
 
-// Format Waktu Galeri HP (Contoh: "15.00 WIB, Minggu 30 Agustus 2026")
+// Pastikan Semua Foto Memiliki Timestamp
+function migratePhotoTimestamps() {
+  let changed = false;
+  photos.forEach((p, index) => {
+    if (!p.timestamp) {
+      p.timestamp = Date.now() - (index * 1000); // Penanganan fallback jika foto lama tidak memiliki timestamp
+      changed = true;
+    }
+  });
+  if (changed) saveData();
+}
+
+// Format Waktu HP: "15.00 WIB, Minggu 30 Agustus 2026"
 function formatFullDateTime(timestamp) {
-  const date = new Date(timestamp);
-  const hariArr = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  const bulanArr = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const d = new Date(timestamp);
+  
+  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  const hari = hariArr[date.getDay()];
-  const tgl = date.getDate();
-  const bln = bulanArr[date.getMonth()];
-  const thn = date.getFullYear();
+  const dayName = days[d.getDay()];
+  const dayNum = d.getDate();
+  const monthName = months[d.getMonth()];
+  const year = d.getFullYear();
 
-  return `${hh}.${mm} WIB, ${hari} ${tgl} ${bln} ${thn}`;
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+
+  return `${hours}.${minutes} WIB, ${dayName} ${dayNum} ${monthName} ${year}`;
 }
 
-// Label Kategori Waktu Singkat
-function getTimeCategoryLabel(timestamp) {
-  const photoDate = new Date(timestamp);
-  const now = new Date();
+// Format Judul Pengelompokan Tanggal (Misal: Hari ini, Kemarin, Minggu 30 Agustus 2026)
+function formatDateHeader(timestamp) {
+  const d = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
 
-  const isToday = photoDate.toDateString() === now.toDateString();
-  if (isToday) return 'Hari Ini';
-
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (photoDate.toDateString() === yesterday.toDateString()) return 'Kemarin';
-
-  const hariArr = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  const bulanArr = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-
-  return `${hariArr[photoDate.getDay()]}, ${photoDate.getDate()} ${bulanArr[photoDate.getMonth()]} ${photoDate.getFullYear()}`;
+  if (d.toDateString() === today.toDateString()) {
+    return 'Hari ini';
+  } else if (d.toDateString() === yesterday.toDateString()) {
+    return 'Kemarin';
+  } else {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
 }
 
-// Format Perhitungan Waktu Berlalu
-function timeAgo(timestamp) {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return `${Math.max(1, seconds)} detik yang lalu`;
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} menit yang lalu`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} jam yang lalu`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} hari yang lalu`;
-
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months} bulan yang lalu`;
-
-  const years = Math.floor(months / 12);
-  return `${years} tahun yang lalu`;
-}
-
-// Render Navigasi Kategori Kustom + Kategori Waktu Otomatis
+// Render Navigasi Kategori
 function renderCategories() {
   categoryListEl.innerHTML = '';
-
-  // Dapatkan semua Kategori Waktu dari foto-foto yang ada
-  const timeCategories = [...new Set(photos.map(p => getTimeCategoryLabel(p.timestamp || Date.now())))];
-
-  // Combine semua kategori
-  const allNavList = [...categories];
-  timeCategories.forEach(tc => {
-    if (!allNavList.includes(tc)) allNavList.push(tc);
-  });
-
-  allNavList.forEach(cat => {
-    const isTimeCat = timeCategories.includes(cat) && !categories.includes(cat);
+  categories.forEach(cat => {
     const chip = document.createElement('div');
-    chip.className = `cat-chip ${cat === activeCategory ? 'active' : ''} ${isTimeCat ? 'time-chip' : ''}`;
+    chip.className = `cat-chip ${cat === activeCategory ? 'active' : ''}`;
     
-    let content = `<span>${isTimeCat ? '📅 ' : ''}${cat}</span>`;
-    if (!isTimeCat && cat !== 'Semua') {
+    let content = `<span>${cat}</span>`;
+    if (cat !== 'Semua') {
       content += `<span class="edit-cat-trigger" onclick="openEditCategoryModal(event, '${cat}')">⚙️</span>`;
     }
     chip.innerHTML = content;
@@ -140,63 +123,92 @@ function renderCategories() {
   });
 }
 
-// Render Galeri Foto
+// Render Galeri Foto Dikategori Menurut Waktu (Pengelompokan Waktu)
 function renderGallery() {
-  galleryGridEl.innerHTML = '';
+  galleryContainerEl.innerHTML = '';
   
-  const filteredPhotos = photos.filter(p => {
-    if (activeCategory === 'Semua') return true;
-    if (categories.includes(activeCategory)) return p.category === activeCategory;
-    // Filter Kategori Waktu
-    return getTimeCategoryLabel(p.timestamp || Date.now()) === activeCategory;
+  // Filter berdasarkan kategori aktif
+  const filteredPhotos = activeCategory === 'Semua' 
+    ? photos 
+    : photos.filter(p => p.category === activeCategory);
+
+  // Kelompokkan foto berdasarkan tanggal
+  const groupedByDate = {};
+
+  filteredPhotos.forEach(photo => {
+    const dateKey = new Date(photo.timestamp).toDateString();
+    if (!groupedByDate[dateKey]) {
+      groupedByDate[dateKey] = [];
+    }
+    groupedByDate[dateKey].push(photo);
   });
 
-  filteredPhotos.forEach((photo) => {
-    const realIndex = photos.indexOf(photo);
-    const isSelected = selectedPhotoIndices.includes(realIndex);
+  // Urutkan grup tanggal dari yang terbaru
+  const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a));
 
-    const card = document.createElement('div');
-    card.className = `photo-card ${isSelected ? 'selected' : ''}`;
-    
-    let selectCheckHtml = isSelectionMode ? `<div class="select-checkbox">${isSelected ? '✓' : ''}</div>` : '';
-    let timeLabel = getTimeCategoryLabel(photo.timestamp || Date.now());
+  sortedDates.forEach(dateKey => {
+    const groupPhotos = groupedByDate[dateKey];
+    const groupHeaderTitle = formatDateHeader(groupPhotos[0].timestamp);
 
-    card.innerHTML = `
-      ${selectCheckHtml}
-      <img src="${photo.data}" alt="Foto">
-      <div class="photo-card-time">${timeLabel}</div>
-    `;
+    const groupEl = document.createElement('div');
+    groupEl.className = 'date-group';
 
-    // Long Press & Klik Handler
-    let pressTimer;
+    const headerEl = document.createElement('div');
+    headerEl.className = 'date-header';
+    headerEl.innerText = groupHeaderTitle;
+    groupEl.appendChild(headerEl);
 
-    const startPress = () => {
-      pressTimer = setTimeout(() => {
-        if (!isSelectionMode) {
-          enterSelectionMode(realIndex);
+    const gridEl = document.createElement('div');
+    gridEl.className = 'gallery-grid';
+
+    groupPhotos.forEach(photo => {
+      const realIndex = photos.indexOf(photo);
+      const isSelected = selectedPhotoIndices.includes(realIndex);
+
+      const card = document.createElement('div');
+      card.className = `photo-card ${isSelected ? 'selected' : ''}`;
+      
+      let selectCheckHtml = isSelectionMode ? `<div class="select-checkbox">${isSelected ? '✓' : ''}</div>` : '';
+
+      card.innerHTML = `
+        ${selectCheckHtml}
+        <img src="${photo.data}" alt="Foto">
+      `;
+
+      // Long Press & Klik Handler
+      let pressTimer;
+
+      const startPress = () => {
+        pressTimer = setTimeout(() => {
+          if (!isSelectionMode) {
+            enterSelectionMode(realIndex);
+          }
+        }, 500);
+      };
+
+      const cancelPress = () => clearTimeout(pressTimer);
+
+      card.addEventListener('mousedown', startPress);
+      card.addEventListener('mouseup', cancelPress);
+      card.addEventListener('mouseleave', cancelPress);
+
+      card.addEventListener('touchstart', startPress, { passive: true });
+      card.addEventListener('touchend', cancelPress);
+      card.addEventListener('touchcancel', cancelPress);
+
+      card.onclick = () => {
+        if (isSelectionMode) {
+          togglePhotoSelection(realIndex);
+        } else {
+          openPhotoViewer(realIndex);
         }
-      }, 500);
-    };
+      };
 
-    const cancelPress = () => clearTimeout(pressTimer);
+      gridEl.appendChild(card);
+    });
 
-    card.addEventListener('mousedown', startPress);
-    card.addEventListener('mouseup', cancelPress);
-    card.addEventListener('mouseleave', cancelPress);
-
-    card.addEventListener('touchstart', startPress, { passive: true });
-    card.addEventListener('touchend', cancelPress);
-    card.addEventListener('touchcancel', cancelPress);
-
-    card.onclick = () => {
-      if (isSelectionMode) {
-        togglePhotoSelection(realIndex);
-      } else {
-        openPhotoViewer(realIndex);
-      }
-    };
-
-    galleryGridEl.appendChild(card);
+    groupEl.appendChild(gridEl);
+    galleryContainerEl.appendChild(groupEl);
   });
 
   updateToggleSelectAllButtonState();
@@ -215,38 +227,34 @@ document.getElementById('close-viewer-btn').onclick = () => {
   currentViewPhotoIndex = null;
 };
 
-// Pop Up Rincian / Detail Foto
-document.getElementById('info-single-btn').onclick = () => {
+// Pop Up Rincian Foto
+document.getElementById('details-single-btn').onclick = () => {
   if (currentViewPhotoIndex !== null) {
     const photo = photos[currentViewPhotoIndex];
-    const ts = photo.timestamp || Date.now();
 
-    document.getElementById('info-cat').innerText = photo.category;
-    document.getElementById('info-time').innerText = formatFullDateTime(ts);
-    document.getElementById('info-time-ago').innerText = timeAgo(ts);
+    // Hitung Waktu
+    document.getElementById('detail-time').innerText = formatFullDateTime(photo.timestamp);
+    document.getElementById('detail-category').innerText = photo.category;
 
-    // Hitung Estimasi Ukuran & Resolusi
+    // Hitung Estimasi Ukuran File (Base64)
+    const stringLength = photo.data.length - 'data:image/png;base64,'.length;
+    const sizeInBytes = 4 * Math.ceil(stringLength / 3) * 0.5624896;
+    const sizeInKB = (sizeInBytes / 1024).toFixed(1);
+    document.getElementById('detail-size').innerText = `${sizeInKB} KB`;
+
+    // Hitung Dimensi Foto
     const tempImg = new Image();
     tempImg.src = photo.data;
     tempImg.onload = () => {
-      document.getElementById('info-resolution').innerText = `${tempImg.width} x ${tempImg.height} piksel`;
-      
-      // Estimasi KB/MB dari String Base64
-      const stringLength = photo.data.length - 'data:image/png;base64,'.length;
-      const sizeInBytes = 4 * Math.ceil(stringLength / 3) * 0.5624;
-      const sizeInKB = (sizeInBytes / 1024).toFixed(1);
-      
-      document.getElementById('info-size').innerText = sizeInKB > 1024 
-        ? `${(sizeInKB / 1024).toFixed(2)} MB` 
-        : `${sizeInKB} KB`;
+      document.getElementById('detail-resolution').innerText = `${tempImg.naturalWidth} x ${tempImg.naturalHeight} px`;
     };
 
-    photoDetailModal.classList.remove('hidden');
+    photoDetailsModal.classList.remove('hidden');
   }
 };
 
-document.getElementById('close-detail-btn').onclick = () => {
-  photoDetailModal.classList.add('hidden');
+document.getElementById('close-details-btn').onclick = () => {
+  photoDetailsModal.classList.add('hidden');
 };
 
 // Unduh Foto dari Viewer Fullscreen
@@ -274,7 +282,6 @@ document.getElementById('final-delete-single-btn').onclick = () => {
     confirmDeleteSingleModal.classList.add('hidden');
     photoViewerModal.classList.add('hidden');
     currentViewPhotoIndex = null;
-    renderCategories();
     renderGallery();
   }
 };
@@ -326,13 +333,11 @@ function updateSelectionUI() {
 }
 
 function updateToggleSelectAllButtonState() {
-  const filteredPhotos = photos.filter(p => {
-    if (activeCategory === 'Semua') return true;
-    if (categories.includes(activeCategory)) return p.category === activeCategory;
-    return getTimeCategoryLabel(p.timestamp || Date.now()) === activeCategory;
-  });
+  const currentFiltered = activeCategory === 'Semua' 
+    ? photos 
+    : photos.filter(p => p.category === activeCategory);
 
-  const allFilteredIndices = filteredPhotos.map(p => photos.indexOf(p));
+  const allFilteredIndices = currentFiltered.map(p => photos.indexOf(p));
   const isAllSelected = allFilteredIndices.length > 0 && allFilteredIndices.every(idx => selectedPhotoIndices.includes(idx));
 
   if (isAllSelected) {
@@ -343,13 +348,11 @@ function updateToggleSelectAllButtonState() {
 }
 
 toggleSelectAllBtn.onclick = () => {
-  const filteredPhotos = photos.filter(p => {
-    if (activeCategory === 'Semua') return true;
-    if (categories.includes(activeCategory)) return p.category === activeCategory;
-    return getTimeCategoryLabel(p.timestamp || Date.now()) === activeCategory;
-  });
+  const currentFiltered = activeCategory === 'Semua' 
+    ? photos 
+    : photos.filter(p => p.category === activeCategory);
 
-  const allFilteredIndices = filteredPhotos.map(p => photos.indexOf(p));
+  const allFilteredIndices = currentFiltered.map(p => photos.indexOf(p));
   const isAllSelected = allFilteredIndices.every(idx => selectedPhotoIndices.includes(idx));
 
   if (isAllSelected) {
@@ -444,7 +447,6 @@ document.getElementById('final-delete-photos-btn').onclick = () => {
   saveData();
   confirmDeletePhotosModal.classList.add('hidden');
   exitSelectionMode();
-  renderCategories();
 };
 
 // Kamera & Senter
@@ -483,7 +485,7 @@ document.getElementById('torch-btn').onclick = async () => {
   }
 };
 
-// Memotret Foto dengan Timestamp & Kedip Kamera
+// Memotret Foto dengan Timestamp Real-Time & Kedip Kamera
 document.getElementById('capture-btn').onclick = () => {
   // 1. Trigger Efek Kedip Layar (Flash)
   flashOverlayEl.classList.add('active');
@@ -501,12 +503,11 @@ document.getElementById('capture-btn').onclick = () => {
   photos.push({
     data: photoData,
     category: 'Semua',
-    timestamp: Date.now() // Simpan waktu terpotret
+    timestamp: Date.now() // Catat Waktu Real-Time Saat Dipotret
   });
   
   saveData();
-  renderCategories();
-  renderGallery();
+  renderGallery(); // Perbarui galeri tanpa menutup kamera
 
   // 3. Notifikasi Teks Singkat
   const noticeEl = document.getElementById('cam-flash-notice');
